@@ -1,1 +1,4 @@
-
+interface:
+  display_name: "Amu Cut"
+  short_description: "中文口播视频剪辑、字幕、B-roll 与交付验收"
+  default_prompt: "使用 Amu Cut Skill：先确认科技商业卡片风或财经人物叙事风，再按人声优先、默认无背景音乐、已批准音效约 -2.3 dBTP、全屏 1–3 秒新语义 B-roll 和陌生人脸规避的共用基线完成内容剪辑、字幕、声音整理、验收预览和交付状态记录。"
