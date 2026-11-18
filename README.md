@@ -1,11 +1,11 @@
-# amu剪辑
+# Amu Cut
 
 属于 amu 的中文竖屏口播视频剪辑 Skill。
 
 ## 当前能力
 
-- `fredtalk-tech-business`：科技、AI、工具和商业分析的紧凑卡片风。
-- `lin-finance-story`：财经、经济、人物和行业解释的叙事风。
+- `tech-business-card`：科技、AI、工具和商业分析的紧凑卡片风。
+- `finance-story`：财经、经济、人物和行业解释的叙事风。
 - 口播结构整理、字幕可读性、语义 B-roll、声音整理、验收和交付状态记录。
 
 本项目提炼的是通用剪辑方法，不复制任何真实账号的头像、账号信息、Logo、独家文案或页面资产。
