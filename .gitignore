@@ -18,3 +18,5 @@ projects/**/input/*.mov
 projects/**/input/*.wav
 projects/**/input/*.mp3
 projects/**/input/*.m4a
+# Network-downloaded B-roll is regenerated from broll-sources.csv.
+projects/**/assets/broll/
