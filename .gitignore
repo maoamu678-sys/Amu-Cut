@@ -10,3 +10,11 @@ __pycache__/
 .env
 .env.*
 !.env.example
+# Amu Cut code-rendered project outputs
+engine/node_modules/
+projects/**/output/
+projects/**/input/*.mp4
+projects/**/input/*.mov
+projects/**/input/*.wav
+projects/**/input/*.mp3
+projects/**/input/*.m4a
