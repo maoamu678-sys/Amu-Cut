@@ -24,7 +24,7 @@ description: "为中文竖屏口播视频提供两套可选择的剪辑模式：
 - `engine/src/export.py` 调用 FFmpeg 合成竖屏视频，并保留可继续修改的工程文件。
 - `engine/src/transcribe.py` 在用户没有提供 SRT 时调用本地 Whisper 自动生成字幕。
 - `engine/src/discover_broll.py` 根据每条字幕的语义联网检索新的 B-roll，保存下载地址、来源和许可证，并允许用户提供的素材覆盖自动结果。
-- `engine/src/match_sfx.py` 根据字幕关键词和音效文件名匹配音效，也接受用户按场景指定的文件。
+- `engine/src/match_sfx.py` 根据字幕关键词和音效文件名匹配音效，可联网搜索下载，也接受用户按场景指定的文件。
 
 真实项目的输出目录需要保留 `MP4`、`SRT`、`timeline.json`、`scene.mjs`、`broll-sources.csv`、`audio-mix.json`、`export.py` 和 `project.md`。自动检查、完整速度预览、人工确认和导出仍然分别记录。
 
@@ -85,7 +85,10 @@ description: "为中文竖屏口播视频提供两套可选择的剪辑模式：
 - 默认使用带来源和许可证信息的 Wikimedia Commons 搜索结果，也接受用户提供的直接 URL、本地素材或其他已配置来源。
 - 自动下载素材后，把记录写入 `broll-sources.csv`，把本地文件写入项目的 `assets/broll/`。
 - 用户指定某个画面、时长、时间点或来源时，优先满足用户要求，并在工程记录中保留覆盖原因。
-- 音效自动匹配只从项目的 `audio/sfx/` 读取独立音效。参考视频提取出的完整音轨进入 `audio/references/`，保存为风格参考，只有用户点名或指定片段时才进入成片混音。
+- 音效按场景优先采用用户指定的文件、下载链接或静音要求，然后匹配独立音效文件。合适的本地声音缺失时，按语义在 Openverse 搜索 CC0 音效并下载。把检索词、作者、许可、来源和实际落点写入 `audio-mix.json`。缺失的候选逐条记入 `pending` 并告知用户。参考视频提取出的完整音轨进入 `audio/references/`，保存为风格参考，只有用户点名或指定片段时才进入成片混音。
+- 将用户的自然语言要求转换为 `audio-mix.json` 中的 `requests`。每条使用时间线中的 `scene_id`，支持 `mute`、`query`（联网检索词）、`source`（文件）、`download_url`、`start`（成片落点）、`source_start`（素材截取起点）、`duration`（秒）和 `volume`（0–1）。全片关闭音效使用 `matching.enabled=false`，仅用本地音效使用 `matching.online=false`。
+- 第一条参考的画面标出了疑问、突然转折、心跳、知识点和单字强调五个落点。用户指定其中一项时设置 `reference_cue` 为上述中文名称，剪辑器会截出对应的短音效。如果用户希望整条片子自动参照这些落点，设置 `matching.use_reference_cues=true`。第二条含真人口播，可参考其节奏。
+- 对每个需要插画面的场景，可改写 `broll.query` 为具体物体、动作或地点。设为 `broll.enabled=false` 可以保留该段人物画面。
 - 所有动态素材仍然要经过完整速度预览，自动匹配结果不能代替用户的最终审美确认。
 
 ## 决策规则

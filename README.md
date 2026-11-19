@@ -11,7 +11,7 @@
 - 通过 `engine/` 生成可修改的 `timeline.json`、`scene.mjs`、B-roll 清单、音频混音说明、导出脚本和工程记录。
 - 没有 SRT 时使用本地 Whisper 自动生成字幕。
 - B-roll 按当前视频内容联网检索和下载，并保存来源与许可证。
-- 音效按字幕语义自动匹配，也可以按用户要求指定场景和文件。
+- 音效按口播内容和用户要求匹配。可指定文件、链接或参考片段。本地缺少合适音效时，从 Openverse 搜索并下载 CC0 短音效，逐条记录来源。
 
 本项目提炼的是通用剪辑方法，不复制任何真实账号的头像、账号信息、Logo、独家文案或页面资产。
 
@@ -44,10 +44,10 @@ https://github.com/maoamu678-sys/Amu-Cut
 ```bash
 cd engine
 npm install
-python3 src/prepare_project.py \\
-  --input ../projects/ai-work-efficiency/input/talking-head.mp4 \\
-  --srt ../projects/ai-work-efficiency/input/talking-head.srt \\
-  --style tech-business-card \\
+python3 src/prepare_project.py \
+  --input ../projects/ai-work-efficiency/input/talking-head.mp4 \
+  --srt ../projects/ai-work-efficiency/input/talking-head.srt \
+  --style tech-business-card \
   --output ../projects/ai-work-efficiency
 python3 src/validate_project.py ../projects/ai-work-efficiency
 ```
