@@ -1,0 +1,10 @@
+{
+  "role": "style-reference-only",
+  "auto_mix": false,
+  "purpose": "Reference clips supplied by the user for sound and pacing analysis.",
+  "sources": [
+    {"file": "reference-01.mp3", "source_video": "0e69639c735b06c18909ec79231cb759.mp4", "duration_seconds": 15.72, "channels": 2, "sample_rate_hz": 44100},
+    {"file": "reference-02.mp3", "source_video": "85cd6c17f82c8f87f015b41feebab9dc.mp4", "duration_seconds": 44.97, "channels": 1, "sample_rate_hz": 44100}
+  ],
+  "mixing": {"include_complete_reference_tracks": false, "use_as_style_reference": true, "user_sfx_can_be_matched": true}
+}
