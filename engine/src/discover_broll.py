@@ -8,7 +8,7 @@ import csv
 import hashlib
 import json
 import re
-import shutil
+import tempfile
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -78,7 +78,7 @@ def search_commons(query: str, limit: int) -> list[dict[str, Any]]:
         }
     )
     candidates = []
-    for page in payload.get("query", {}).get("pages", []):
+    for page in sorted(payload.get("query", {}).get("pages", []), key=lambda p: p.get("index", 9999)):
         image_info = (page.get("imageinfo") or [{}])[0]
         mime = str(image_info.get("mime", "")).lower()
         if mime not in IMAGE_EXTENSIONS and mime not in VIDEO_EXTENSIONS:
@@ -88,7 +88,7 @@ def search_commons(query: str, limit: int) -> list[dict[str, Any]]:
             {
                 "title": page.get("title", ""),
                 "source_url": f"https://commons.wikimedia.org/wiki/{urllib.parse.quote(str(page.get('title', '')).replace(' ', '_'))}",
-                "download_url": image_info.get("thumburl") or image_info.get("url"),
+                "download_url": image_info.get("url") if mime in VIDEO_EXTENSIONS else (image_info.get("thumburl") or image_info.get("url")),
                 "mime": mime,
                 "size": int(image_info.get("size") or 0),
                 "license": license_value(metadata, "LicenseShortName") or "Wikimedia Commons license",
@@ -105,15 +105,20 @@ def download_file(url: str, target: Path, max_bytes: int) -> None:
         if content_length > max_bytes:
             raise ValueError(f"文件超过 {max_bytes} 字节限制")
         total = 0
-        with target.open("wb") as output:
-            while True:
-                chunk = response.read(1024 * 256)
-                if not chunk:
-                    break
-                total += len(chunk)
-                if total > max_bytes:
-                    raise ValueError(f"文件超过 {max_bytes} 字节限制")
-                output.write(chunk)
+        with tempfile.NamedTemporaryFile(dir=target.parent, delete=False) as output:
+            temp = Path(output.name)
+            try:
+                while chunk := response.read(256 * 1024):
+                    total += len(chunk)
+                    if total > max_bytes:
+                        raise ValueError(f"文件超过 {max_bytes} 字节限制")
+                    output.write(chunk)
+                if not total or (content_length and total != content_length):
+                    raise ValueError("下载到的素材为空或不完整")
+                output.close()
+                temp.replace(target)
+            finally:
+                temp.unlink(missing_ok=True)
 
 
 def load_rows(path: Path) -> list[dict[str, str]]:
@@ -153,10 +158,14 @@ def discover(project_dir: Path, per_scene: int, max_bytes: int, dry_run: bool) -
     for scene_index, scene in enumerate(timeline.get("scenes", []), start=1):
         scene_id = str(scene.get("id", f"scene-{scene_index:03d}"))
         broll = scene.setdefault("broll", {})
+        if broll.get("enabled", True) is False:
+            broll.update(local_path="", status="disabled")
+            rows.extend(r for r in existing if r.get("scene_id") == scene_id and r.get("used") == "user")
+            continue
         query = str(broll.get("query") or clean_query(str(scene.get("subtitle", "")), timeline.get("style", "tech-business-card")))
-        preserved = [row for row in existing if row.get("scene_id") == scene_id and (row.get("used") == "user" or row.get("local_path"))]
+        preserved = [row for row in existing if row.get("scene_id") == scene_id and (row.get("used") == "user" or (row.get("local_path") and (project_dir / row["local_path"]).is_file()))]
         if preserved:
-            selected = preserved[0]
+            selected = next((r for r in preserved if r.get("used") == "user"), preserved[0])
             if selected.get("used") == "user" and not selected.get("local_path") and selected.get("download_url") and not dry_run:
                 suffix = extension_for({"url": selected["download_url"]})
                 digest = hashlib.sha1(f"{scene_id}:{selected['download_url']}".encode("utf-8")).hexdigest()[:10]
@@ -168,7 +177,9 @@ def discover(project_dir: Path, per_scene: int, max_bytes: int, dry_run: bool) -
                 except (OSError, ValueError, urllib.error.URLError) as exc:
                     print(f"  用户指定素材下载失败：{exc}")
             rows.extend(preserved)
-            status = "user-selected" if selected.get("local_path") else "user-pending"
+            status = "downloaded" if selected.get("used") != "user" else "user-selected"
+            if not selected.get("local_path") or not (project_dir / selected["local_path"]).is_file():
+                status = "user-pending"
             broll.update({"query": query, "source": selected.get("source_url", ""), "local_path": selected.get("local_path", ""), "duration": float(broll.get("duration") or 1.5), "status": status})
             continue
 
@@ -177,7 +188,11 @@ def discover(project_dir: Path, per_scene: int, max_bytes: int, dry_run: bool) -
             rows.append({"scene_id": scene_id, "query": query, "role": "semantic-fullscreen", "used": "pending", "reason": "dry-run，尚未下载"})
             continue
 
-        candidates = search_commons(query, max(per_scene * 3, 3))
+        try:
+            candidates = search_commons(query, max(per_scene * 3, 3))
+        except (OSError, ValueError) as exc:
+            print(f"  检索失败：{exc}")
+            candidates = []
         selected_count = 0
         for candidate in candidates:
             if selected_count >= per_scene:
@@ -213,7 +228,7 @@ def discover(project_dir: Path, per_scene: int, max_bytes: int, dry_run: bool) -
             selected_count += 1
         if selected_count == 0:
             rows.append({"scene_id": scene_id, "query": query, "role": "semantic-fullscreen", "used": "pending", "reason": "没有找到可下载的候选素材"})
-            broll.update({"query": query, "status": "pending"})
+            broll.update({"query": query, "status": "pending", "source": "", "local_path": ""})
 
     timeline["brollPolicy"].update(
         {

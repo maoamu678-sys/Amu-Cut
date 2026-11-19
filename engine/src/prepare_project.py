@@ -109,13 +109,23 @@ def choose_keyword(text: str, style: str) -> str:
 
 
 def build_broll_query(text: str, style: str) -> str:
-    context = (
-        "AI technology workplace productivity"
-        if style == "tech-business-card"
-        else "finance economy business industry people"
+    topics = (
+        (("表格", "工作表", "Excel"), "spreadsheet"),
+        (("输入", "打字", "键盘"), "computer keyboard"),
+        (("点击", "鼠标"), "computer mouse"),
+        (("港口", "集装箱"), "container port"),
+        (("工厂", "产线"), "factory production line"),
+        (("会议", "开会"), "office meeting"),
+        (("芯片", "半导体"), "semiconductor wafer"),
+        (("通胀", "物价"), "supermarket prices"),
+        (("股票", "交易所"), "stock exchange"),
+        (("人工智能", "AI工具"), "artificial intelligence"),
     )
-    compact = re.sub(r"[，。！？、,.!?；;：:]+", " ", text).strip()
-    return f"{context} {compact[:24]}".strip()
+    for keywords, query in topics:
+        if any(k.casefold() in text.casefold() for k in keywords):
+            return query
+    return re.sub(r"[，。！？、,.!?；;：:]+", " ", text).strip()[:60]
+
 
 
 def transcribe_without_srt(input_path: Path, output_dir: Path, language: str, model: str) -> Path:
@@ -162,12 +172,13 @@ def build_project(args: argparse.Namespace) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "input").mkdir(exist_ok=True)
     (output_dir / "output").mkdir(exist_ok=True)
-    shutil.copy2(input_path, output_dir / "input" / input_path.name)
+    video_copy = output_dir / "input" / input_path.name
+    if input_path != video_copy.resolve():
+        shutil.copy2(input_path, video_copy)
     if args.srt:
         srt_path = Path(args.srt).expanduser().resolve()
         if not srt_path.is_file():
             raise SystemExit(f"找不到字幕文件 {srt_path}")
-        shutil.copy2(srt_path, output_dir / "input" / srt_path.name)
     else:
         print("没有提供 SRT，开始使用本地 Whisper 自动识别字幕。")
         srt_path = transcribe_without_srt(input_path, output_dir, args.language, args.model)
@@ -248,7 +259,8 @@ def build_project(args: argparse.Namespace) -> Path:
                 "voice": {"priority": True, "target": "speech-first"},
                 "sfx": {"approvedPeakDbtp": -2.3, "uses": []},
                 "matching": {
-                    "mode": "user-requested-or-local-sfx-filename-match",
+                    "mode": "user-local-or-online",
+                    "online": True,
                     "sfxDirectory": "audio/sfx",
                     "referencePool": "audio/references",
                     "referenceTracksAreNotMixedAutomatically": True,
@@ -281,7 +293,7 @@ def build_project(args: argparse.Namespace) -> Path:
 - 修改 B-roll 来源，编辑 `broll-sources.csv`。
 - 运行 `engine/src/discover_broll.py`，按每条字幕语义联网检索并下载新的 B-roll；用户手动指定的 URL 优先级更高。
 - 修改音效和人声混音规则，编辑 `audio-mix.json`。
-- 把单独音效放入 `audio/sfx/`，运行 `engine/src/match_sfx.py` 自动匹配；用户要求可以写入 `audio-mix.json` 的 `requests`。
+- 把单独音效放入 `audio/sfx/`，运行 `engine/src/match_sfx.py` 自动匹配，缺少对应音效时联网检索。用户要求可以写入 `audio-mix.json` 的 `requests`。
 
 ## 声音基线
 

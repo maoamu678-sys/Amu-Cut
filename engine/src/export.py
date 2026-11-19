@@ -99,6 +99,7 @@ def sfx_uses(project_dir: Path) -> list[dict[str, Any]]:
         uses.append({
             "path": path,
             "start": max(0.0, float(item.get("start", 0))),
+            "source_start": max(0.0, float(item.get("source_start", 0))),
             "duration": max(0.05, float(item.get("duration", 0.3))),
             "volume": max(0.0, min(1.0, float(item.get("volume", 0.28)))),
         })
@@ -151,7 +152,7 @@ def build_export_command(
         start = asset["start"]
         end = start + asset["duration"]
         filters.append(
-            f"[{index + 1}:v]trim=duration={asset['duration']:.3f},setpts=PTS-STARTPTS,"
+            f"[{index + 1}:v]trim=duration={asset['duration']:.3f},setpts=PTS-STARTPTS+{start:.6f}/TB,"
             "scale=1080:1920:force_original_aspect_ratio=increase,"
             f"crop=1080:1920,format=rgba[{overlay_label}]"
         )
@@ -182,7 +183,7 @@ def build_export_command(
         delay = round(item["start"] * 1000)
         label = f"sfx{index}"
         filters.append(
-            f"[{sfx_input_start + index}:a]atrim=duration={item['duration']:.3f},asetpts=PTS-STARTPTS,"
+            f"[{sfx_input_start + index}:a]atrim=start={item['source_start']:.3f}:duration={item['duration']:.3f},asetpts=PTS-STARTPTS,"
             f"volume={item['volume']:.3f},adelay={delay}|{delay}[{label}]"
         )
         audio_labels.append(f"[{label}]")
