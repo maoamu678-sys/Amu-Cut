@@ -7,6 +7,8 @@ import argparse
 import json
 import re
 import shutil
+import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -93,30 +95,90 @@ export function getSceneSpec(timeline) {{
 '''
 
 
+def choose_keyword(text: str, style: str) -> str:
+    candidates = (
+        ["AI工具", "效率", "自动化", "重复工作", "数据", "流程", "判断", "工具"]
+        if style == "tech-business-card"
+        else ["结论", "人物", "经济", "行业", "成本", "增长", "数字", "变化"]
+    )
+    for candidate in candidates:
+        if candidate in text:
+            return candidate
+    compact = re.sub(r"\s+", "", text)
+    return compact[:8]
+
+
+def build_broll_query(text: str, style: str) -> str:
+    context = (
+        "AI technology workplace productivity"
+        if style == "tech-business-card"
+        else "finance economy business industry people"
+    )
+    compact = re.sub(r"[，。！？、,.!?；;：:]+", " ", text).strip()
+    return f"{context} {compact[:24]}".strip()
+
+
+def transcribe_without_srt(input_path: Path, output_dir: Path, language: str, model: str) -> Path:
+    generated = output_dir / "input" / f"{input_path.stem}.srt"
+    transcriber = Path(__file__).with_name("transcribe.py")
+    subprocess.run(
+        [
+            sys.executable,
+            str(transcriber),
+            "--input",
+            str(input_path),
+            "--output",
+            str(generated),
+            "--language",
+            language,
+            "--model",
+            model,
+        ],
+        check=True,
+    )
+    return generated
+
+
+def write_broll_template(path: Path) -> None:
+    path.write_text(
+        "scene_id,query,source_url,download_url,license,local_path,role,used,reason\n"
+        "# Run engine/src/discover_broll.py to search and download fresh semantic B-roll.\n",
+        encoding="utf-8",
+    )
+
+
 def write_json(path: Path, value: Any) -> None:
     path.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
 def build_project(args: argparse.Namespace) -> Path:
     input_path = Path(args.input).expanduser().resolve()
-    srt_path = Path(args.srt).expanduser().resolve()
     output_dir = Path(args.output).expanduser().resolve()
     if args.style not in STYLE_NAMES:
         raise SystemExit(f"不支持的风格 {args.style}。可选值为 {', '.join(STYLE_NAMES)}")
     if not input_path.is_file():
         raise SystemExit(f"找不到源视频 {input_path}")
-    if not srt_path.is_file():
-        raise SystemExit(f"找不到字幕文件 {srt_path}")
-
-    cues = parse_srt(srt_path)
-    if not cues:
-        raise SystemExit("SRT 没有识别到有效字幕时间码")
 
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "input").mkdir(exist_ok=True)
     (output_dir / "output").mkdir(exist_ok=True)
     shutil.copy2(input_path, output_dir / "input" / input_path.name)
-    shutil.copy2(srt_path, output_dir / "input" / srt_path.name)
+    if args.srt:
+        srt_path = Path(args.srt).expanduser().resolve()
+        if not srt_path.is_file():
+            raise SystemExit(f"找不到字幕文件 {srt_path}")
+        shutil.copy2(srt_path, output_dir / "input" / srt_path.name)
+    else:
+        print("没有提供 SRT，开始使用本地 Whisper 自动识别字幕。")
+        srt_path = transcribe_without_srt(input_path, output_dir, args.language, args.model)
+
+    cues = parse_srt(srt_path)
+    if not cues:
+        raise SystemExit("没有识别到有效字幕时间码")
+
+    destination_srt = output_dir / "input" / srt_path.name
+    if srt_path != destination_srt:
+        shutil.copy2(srt_path, destination_srt)
 
     scenes = []
     for cue in cues:
@@ -126,10 +188,23 @@ def build_project(args: argparse.Namespace) -> Path:
                 "start": cue["start"],
                 "duration": round(cue["end"] - cue["start"], 3),
                 "subtitle": cue["text"],
-                "keyword": "",
+                "keyword": choose_keyword(cue["text"], args.style),
                 "safeArea": {"x": 72, "y": 120, "width": 936, "height": 1650},
-                "broll": {"source": "", "mode": "semantic-fullscreen", "duration": 0},
-                "sfx": {"source": "", "start": cue["start"], "duration": 0, "peak_dbtp": -2.3},
+                "broll": {
+                    "query": build_broll_query(cue["text"], args.style),
+                    "source": "",
+                    "local_path": "",
+                    "mode": "semantic-fullscreen",
+                    "duration": min(3.0, max(1.0, round(cue["end"] - cue["start"], 3))),
+                    "status": "pending-online-search",
+                },
+                "sfx": {
+                    "source": "",
+                    "start": cue["start"],
+                    "duration": 0,
+                    "match": "automatic-or-user-requested",
+                    "peak_dbtp": -2.3,
+                },
             }
         )
 
@@ -140,11 +215,21 @@ def build_project(args: argparse.Namespace) -> Path:
         "styleName": STYLE_NAMES[args.style],
         "format": {"width": 1080, "height": 1920, "fps": 30, "pixelFormat": "yuv420p"},
         "source": {"video": f"input/{input_path.name}", "srt": f"input/{srt_path.name}"},
-        "audio": {"music": "off", "voicePriority": True, "approvedSfxPeakDbtp": -2.3},
+        "audio": {
+            "music": "off",
+            "voicePriority": True,
+            "approvedSfxPeakDbtp": -2.3,
+            "sfxMode": "automatic-or-user-requested",
+            "referencePool": "audio/references",
+        },
         "brollPolicy": {
             "freshBatch": True,
             "fullScreenSeconds": [1, 3],
             "strangerFaces": "avoid-blur-or-replace",
+            "sourceMode": "online-search-with-attribution",
+            "provider": "wikimedia-commons",
+            "userUrlsOverrideAutomaticSearch": True,
+            "downloadFreshBatch": True,
         },
         "scenes": scenes,
     }
@@ -152,11 +237,9 @@ def build_project(args: argparse.Namespace) -> Path:
     (output_dir / "scene.mjs").write_text(make_scene_module(args.style), encoding="utf-8")
 
     if not (output_dir / "broll-sources.csv").exists():
-        (output_dir / "broll-sources.csv").write_text(
-            "scene_id,source,role,used,reason\n"
-            "# Fill this file with fresh semantic B-roll before export.\n",
-            encoding="utf-8",
-        )
+        write_broll_template(output_dir / "broll-sources.csv")
+    elif "query" not in (output_dir / "broll-sources.csv").read_text(encoding="utf-8", errors="ignore").splitlines()[0]:
+        write_broll_template(output_dir / "broll-sources.csv")
     if not (output_dir / "audio-mix.json").exists():
         write_json(
             output_dir / "audio-mix.json",
@@ -164,6 +247,13 @@ def build_project(args: argparse.Namespace) -> Path:
                 "music": {"enabled": False, "reason": "默认关闭背景音乐"},
                 "voice": {"priority": True, "target": "speech-first"},
                 "sfx": {"approvedPeakDbtp": -2.3, "uses": []},
+                "matching": {
+                    "mode": "user-requested-or-local-sfx-filename-match",
+                    "sfxDirectory": "audio/sfx",
+                    "referencePool": "audio/references",
+                    "referenceTracksAreNotMixedAutomatically": True,
+                },
+                "requests": [],
             },
         )
 
@@ -189,7 +279,9 @@ def build_project(args: argparse.Namespace) -> Path:
 - 修改时间、字幕、关键词、B-roll 和音效位置，编辑 `timeline.json`。
 - 修改字体、颜色、布局和动画，编辑 `scene.mjs`。
 - 修改 B-roll 来源，编辑 `broll-sources.csv`。
+- 运行 `engine/src/discover_broll.py`，按每条字幕语义联网检索并下载新的 B-roll；用户手动指定的 URL 优先级更高。
 - 修改音效和人声混音规则，编辑 `audio-mix.json`。
+- 把单独音效放入 `audio/sfx/`，运行 `engine/src/match_sfx.py` 自动匹配；用户要求可以写入 `audio-mix.json` 的 `requests`。
 
 ## 声音基线
 
@@ -197,6 +289,13 @@ def build_project(args: argparse.Namespace) -> Path:
 - 默认关闭背景音乐。
 - 音效只服务语义、节奏和转折。
 - 已批准音效以约 `-2.3 dBTP` 作为峰值控制参考。
+
+## 动态素材
+
+- 没有 SRT 时，Amu Cut 使用本地 Whisper 自动生成字幕。
+- B-roll 默认通过 Wikimedia Commons 搜索，保存来源、下载地址和许可证信息。
+- 用户提供的 B-roll URL、音效 URL 和具体时间要求可以覆盖自动匹配结果。
+- 参考视频提取出的完整音轨保存在 `audio/references/`，用于风格参考和用户点名的片段选择。
 """
     (output_dir / "project.md").write_text(project_note, encoding="utf-8")
     shutil.copy2(Path(__file__).with_name("export.py"), output_dir / "export.py")
@@ -206,7 +305,9 @@ def build_project(args: argparse.Namespace) -> Path:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", required=True, help="原始口播 MP4")
-    parser.add_argument("--srt", required=True, help="对应 SRT")
+    parser.add_argument("--srt", help="对应 SRT。省略时使用本地 Whisper 自动识别")
+    parser.add_argument("--language", default="zh", help="自动识别语言，默认 zh")
+    parser.add_argument("--model", default="turbo", help="自动识别使用的 Whisper 模型，默认 turbo")
     parser.add_argument("--style", default="tech-business-card", choices=STYLE_NAMES)
     parser.add_argument("--output", required=True, help="工程输出目录")
     args = parser.parse_args()

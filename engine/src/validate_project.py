@@ -72,20 +72,42 @@ def validate(project_dir: Path) -> tuple[list[str], list[str], list[str]]:
         passed.append("音效峰值参考为约 -2.3 dBTP")
     else:
         warnings.append("音效峰值参考未使用约 -2.3 dBTP")
+    if audio.get("sfxMode") == "automatic-or-user-requested":
+        passed.append("音效支持自动匹配和用户指定")
+    if audio.get("referencePool"):
+        reference_dir = project_dir / audio["referencePool"]
+        if reference_dir.is_dir():
+            passed.append("声音参考池已建立")
+        else:
+            warnings.append("声音参考池尚未放入音频文件")
 
     broll_policy = timeline.get("brollPolicy", {})
     if broll_policy.get("freshBatch") is True:
         passed.append("工程要求建立新的语义 B-roll 批次")
     if broll_policy.get("strangerFaces") == "avoid-blur-or-replace":
         passed.append("工程包含陌生人脸处理规则")
+    if broll_policy.get("sourceMode") == "online-search-with-attribution":
+        passed.append("B-roll 支持按语义联网检索并保存来源信息")
 
     broll_file = project_dir / "broll-sources.csv"
     if not broll_file.is_file():
         blocked.append("缺少 B-roll 来源清单")
-    elif "# Fill this file" in broll_file.read_text(encoding="utf-8"):
-        warnings.append("B-roll 来源清单仍是模板，真实导出前需要补齐")
+    elif "# Run engine/src/discover_broll.py" in broll_file.read_text(encoding="utf-8"):
+        warnings.append("B-roll 来源清单仍是模板，运行 discover_broll.py 后再导出")
     else:
         passed.append("B-roll 来源清单存在")
+
+    audio_mix_path = project_dir / "audio-mix.json"
+    if audio_mix_path.is_file():
+        try:
+            audio_mix = load_json(audio_mix_path)
+        except json.JSONDecodeError as exc:
+            blocked.append(f"audio-mix.json 不是有效 JSON：{exc}")
+        else:
+            for use in audio_mix.get("uses", []):
+                source = str(use.get("source", "")).strip()
+                if source and not (project_dir / source).is_file():
+                    blocked.append(f"音效来源不存在：{source}")
 
     return passed, warnings, blocked
 
