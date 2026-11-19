@@ -1,0 +1,18 @@
+{
+  "name": "amu-cut-motion-engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Three.js overlay renderer and project tools for the Amu Cut Skill.",
+  "scripts": {
+    "prepare": "python3 src/prepare_project.py --help",
+    "validate": "python3 src/validate_project.py",
+    "export": "python3 src/export.py",
+    "render-overlay": "node src/render_overlay.mjs"
+  },
+  "dependencies": {
+    "ffmpeg-static": "^5.2.0",
+    "playwright": "^1.52.0",
+    "three": "^0.171.0"
+  }
+}
