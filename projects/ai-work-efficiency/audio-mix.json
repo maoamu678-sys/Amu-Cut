@@ -10,5 +10,13 @@
   "sfx": {
     "approvedPeakDbtp": -2.3,
     "uses": []
-  }
+  },
+  "matching": {
+    "mode": "user-requested-or-local-sfx-filename-match",
+    "sfxDirectory": "audio/sfx",
+    "referencePool": "audio/references",
+    "referenceTracksAreNotMixedAutomatically": true
+  },
+  "requests": [],
+  "uses": []
 }

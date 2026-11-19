@@ -16,12 +16,21 @@
   "audio": {
     "music": "off",
     "voicePriority": true,
-    "approvedSfxPeakDbtp": -2.3
+    "approvedSfxPeakDbtp": -2.3,
+    "sfxMode": "automatic-or-user-requested",
+    "referencePool": "audio/references"
   },
   "brollPolicy": {
     "freshBatch": true,
-    "fullScreenSeconds": [1, 3],
-    "strangerFaces": "avoid-blur-or-replace"
+    "fullScreenSeconds": [
+      1,
+      3
+    ],
+    "strangerFaces": "avoid-blur-or-replace",
+    "sourceMode": "online-search-with-attribution",
+    "provider": "wikimedia-commons",
+    "userUrlsOverrideAutomaticSearch": true,
+    "downloadFreshBatch": true
   },
   "scenes": []
 }
