@@ -25,7 +25,7 @@ python3 src/prepare_project.py \
   --output ../projects/ai-work-efficiency
 ```
 
-工程生成后，按字幕语义联网检索 B-roll，并匹配用户提供的音效：
+工程生成后，按字幕语义联网检索 B-roll，并按口播内容匹配音效（可从 Openverse 下载或由用户指定）：
 
 ```bash
 python3 src/discover_broll.py ../projects/ai-work-efficiency

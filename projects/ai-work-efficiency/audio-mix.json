@@ -12,10 +12,12 @@
     "uses": []
   },
   "matching": {
-    "mode": "user-requested-or-local-sfx-filename-match",
+    "mode": "user-local-or-online",
     "sfxDirectory": "audio/sfx",
     "referencePool": "audio/references",
-    "referenceTracksAreNotMixedAutomatically": true
+    "referenceTracksAreNotMixedAutomatically": true,
+    "online": true,
+    "use_reference_cues": false
   },
   "requests": [],
   "uses": []
