@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "0.1",
+  "project": "Amu Cut",
+  "style": "tech-business-card",
+  "styleName": "科技商业卡片风",
+  "format": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30,
+    "pixelFormat": "yuv420p"
+  },
+  "source": {
+    "video": "input/talking-head.mp4",
+    "srt": "input/talking-head.srt"
+  },
+  "audio": {
+    "music": "off",
+    "voicePriority": true,
+    "approvedSfxPeakDbtp": -2.3
+  },
+  "brollPolicy": {
+    "freshBatch": true,
+    "fullScreenSeconds": [1, 3],
+    "strangerFaces": "avoid-blur-or-replace"
+  },
+  "scenes": []
+}

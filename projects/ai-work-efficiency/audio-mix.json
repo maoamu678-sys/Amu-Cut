@@ -1,0 +1,14 @@
+{
+  "music": {
+    "enabled": false,
+    "reason": "Amu Cut 默认关闭背景音乐"
+  },
+  "voice": {
+    "priority": true,
+    "target": "speech-first"
+  },
+  "sfx": {
+    "approvedPeakDbtp": -2.3,
+    "uses": []
+  }
+}
